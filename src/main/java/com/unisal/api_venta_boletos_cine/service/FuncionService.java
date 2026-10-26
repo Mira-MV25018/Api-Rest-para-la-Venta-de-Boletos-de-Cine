@@ -29,8 +29,7 @@ public class FuncionService {
         funcion.setPelicula(pelicula);
         funcion.setSala(sala);
         funcion.setFechaHora(dto.getFechaHora());
-
-        // Eliminamos setPrecio() ya que la entidad Funcion no tiene ese atributo
+        funcion.setPrecioBase(dto.getPrecio()); // Esta línea soluciona el error 500
 
         return funcionRepository.save(funcion);
     }
