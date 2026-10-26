@@ -2,6 +2,7 @@ package com.unisal.api_venta_boletos_cine.controller;
 
 import com.unisal.api_venta_boletos_cine.dto.PeliculaDTO;
 import com.unisal.api_venta_boletos_cine.service.PeliculaService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,12 +28,12 @@ public class PeliculaController {
     }
 
     @PostMapping
-    public ResponseEntity<PeliculaDTO> crear(@RequestBody PeliculaDTO peliculaDTO) {
+    public ResponseEntity<PeliculaDTO> crear(@Valid @RequestBody PeliculaDTO peliculaDTO) {
         return new ResponseEntity<>(peliculaService.guardar(peliculaDTO), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<PeliculaDTO> actualizar(@PathVariable Long id, @RequestBody PeliculaDTO peliculaDTO) {
+    public ResponseEntity<PeliculaDTO> actualizar(@PathVariable Long id, @Valid @RequestBody PeliculaDTO peliculaDTO) {
         return ResponseEntity.ok(peliculaService.actualizar(id, peliculaDTO));
     }
 
