@@ -37,4 +37,27 @@ public class FuncionService {
     public List<Funcion> obtenerTodas() {
         return funcionRepository.findAll();
     }
+    public Funcion actualizarFuncion(Long id, FuncionDTO dto) {
+        Funcion funcion = funcionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException(
+                        "No se encontró la función con ID: " + id));
+
+        var pelicula = peliculaRepository.findById(
+                        Long.valueOf(dto.getIdPelicula()))
+                .orElseThrow(() -> new RuntimeException(
+                        "La película no existe"));
+
+        var sala = salaRepository.findById(
+                        Long.valueOf(dto.getIdSala()))
+                .orElseThrow(() -> new RuntimeException(
+                        "La sala no existe"));
+
+        funcion.setPelicula(pelicula);
+        funcion.setSala(sala);
+        funcion.setFechaHora(dto.getFechaHora());
+        funcion.setPrecioBase(dto.getPrecio());
+
+        return funcionRepository.save(funcion);
+    }
+
 }

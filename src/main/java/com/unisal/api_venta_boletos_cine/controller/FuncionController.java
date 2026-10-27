@@ -28,4 +28,15 @@ public class FuncionController {
     public ResponseEntity<List<Funcion>> obtenerTodas() {
         return ResponseEntity.ok(funcionService.obtenerTodas());
     }
+
+    // Actualizar una función existente por su ID
+    @PutMapping("/{id}")
+    public ResponseEntity<Funcion> actualizarFuncion(
+            @PathVariable Long id,
+            @Valid @RequestBody FuncionDTO dto) {
+
+        return ResponseEntity.ok(
+                funcionService.actualizarFuncion(id, dto)
+        );
+    }
 }
