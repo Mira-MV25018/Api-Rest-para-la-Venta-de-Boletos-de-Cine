@@ -1,6 +1,6 @@
 package com.unisal.api_venta_boletos_cine.controller;
 
-import com.unisal.api_venta_boletos_cine.dto.FuncionDTO;
+import com.unisal.api_venta_boletos_cine.dto.FuncionRequestDTO;
 import com.unisal.api_venta_boletos_cine.entity.Funcion;
 import com.unisal.api_venta_boletos_cine.service.FuncionService;
 import jakarta.validation.Valid;
@@ -19,7 +19,7 @@ public class FuncionController {
     private final FuncionService funcionService;
 
     @PostMapping
-    public ResponseEntity<Funcion> crearFuncion(@Valid @RequestBody FuncionDTO dto) {
+    public ResponseEntity<Funcion> crearFuncion(@Valid @RequestBody FuncionRequestDTO dto) {
         Funcion nuevaFuncion = funcionService.crearFuncion(dto);
         return new ResponseEntity<>(nuevaFuncion, HttpStatus.CREATED);
     }

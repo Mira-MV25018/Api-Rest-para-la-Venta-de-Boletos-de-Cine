@@ -1,6 +1,6 @@
 package com.unisal.api_venta_boletos_cine.service;
 
-import com.unisal.api_venta_boletos_cine.dto.FuncionDTO;
+import com.unisal.api_venta_boletos_cine.dto.FuncionRequestDTO;
 import com.unisal.api_venta_boletos_cine.entity.Funcion;
 import com.unisal.api_venta_boletos_cine.repository.FuncionRepository;
 import com.unisal.api_venta_boletos_cine.repository.PeliculaRepository;
@@ -17,7 +17,7 @@ public class FuncionService {
     private final PeliculaRepository peliculaRepository;
     private final SalaRepository salaRepository;
 
-    public Funcion crearFuncion(FuncionDTO dto) {
+    public Funcion crearFuncion(FuncionRequestDTO dto) {
         // Convertimos el Integer del DTO al Long que espera el repositorio
         var pelicula = peliculaRepository.findById(Long.valueOf(dto.getIdPelicula()))
                 .orElseThrow(() -> new RuntimeException("Error: La película con ID " + dto.getIdPelicula() + " no existe."));

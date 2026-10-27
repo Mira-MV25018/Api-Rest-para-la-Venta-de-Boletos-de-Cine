@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 
 @Data
-public class FuncionDTO {
+public class FuncionRequestDTO {
     private Integer id;
 
     @NotNull(message = "El ID de la película es obligatorio")
