@@ -1,10 +1,13 @@
 package com.unisal.api_venta_boletos_cine.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 import java.time.LocalDateTime;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "funcion")
 public class Funcion {
@@ -16,10 +19,12 @@ public class Funcion {
 
     @ManyToOne
     @JoinColumn(name = "id_pelicula")
+    @ToString.Exclude
     private Pelicula pelicula;
 
     @ManyToOne
     @JoinColumn(name = "id_sala")
+    @ToString.Exclude
     private Sala sala;
 
     @Column(name = "fecha_hora")

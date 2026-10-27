@@ -1,7 +1,7 @@
 package com.unisal.api_venta_boletos_cine.controller;
 
 import com.unisal.api_venta_boletos_cine.dto.FuncionRequestDTO;
-import com.unisal.api_venta_boletos_cine.entity.Funcion;
+import com.unisal.api_venta_boletos_cine.dto.FuncionResponseDTO;
 import com.unisal.api_venta_boletos_cine.service.FuncionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,24 +19,29 @@ public class FuncionController {
     private final FuncionService funcionService;
 
     @PostMapping
-    public ResponseEntity<Funcion> crearFuncion(@Valid @RequestBody FuncionRequestDTO dto) {
-        Funcion nuevaFuncion = funcionService.crearFuncion(dto);
-        return new ResponseEntity<>(nuevaFuncion, HttpStatus.CREATED);
+    public ResponseEntity<FuncionResponseDTO> crear(@Valid @RequestBody FuncionRequestDTO dto) {
+        return new ResponseEntity<>(funcionService.crear(dto), HttpStatus.CREATED);
     }
 
     @GetMapping
-    public ResponseEntity<List<Funcion>> obtenerTodas() {
+    public ResponseEntity<List<FuncionResponseDTO>> listar() {
         return ResponseEntity.ok(funcionService.obtenerTodas());
     }
 
-    // Actualizar una función existente por su ID
-    @PutMapping("/{id}")
-    public ResponseEntity<Funcion> actualizarFuncion(
-            @PathVariable Long id,
-            @Valid @RequestBody FuncionDTO dto) {
+    @GetMapping("/{id}")
+    public ResponseEntity<FuncionResponseDTO> obtener(@PathVariable Long id) {
+        return ResponseEntity.ok(funcionService.obtenerPorId(id));
+    }
 
-        return ResponseEntity.ok(
-                funcionService.actualizarFuncion(id, dto)
-        );
+    @PutMapping("/{id}")
+    public ResponseEntity<FuncionResponseDTO> actualizar(@PathVariable Long id,
+                                                         @Valid @RequestBody FuncionRequestDTO dto) {
+        return ResponseEntity.ok(funcionService.actualizar(id, dto));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        funcionService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 }
