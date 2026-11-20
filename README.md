@@ -179,33 +179,21 @@ La API implementará las operaciones HTTP estándar (`GET`, `POST`, `PUT`, `DELE
 
 ## Instrucciones de Ejecución y Despliegue (Previsto)
 
-> *Esta sección contendrá los comandos de ejecución una vez iniciada la fase de código y automatización.*
-
-1. **Clonar el repositorio:**
-
+## Instrucciones de Despliegue (Local / Kubernetes)
+1. **Requisitos previos:** Docker Desktop con Kubernetes habilitado y `act` instalado.
+   
+2. **Construir la imagen:**
+   Ejecutar localmente el pipeline para empaquetar el JAR y generar la imagen:
    ```
-   git clone https://github.com/Mira-MV25018/Api-Rest-para-la-Venta-de-Boletos-de-Cine.git
-   cd Api-Rest-para-la-Venta-de-Boletos-de-Cine
+   act -W .github/workflows/ci-cd.yml
    
    ```
-
-2. **Ejecutar Pruebas Unitarias:**
-
-   ```
-   mvn test
-   
-   ```
-
-3. **Ejecución Local de Pipeline CI/CD con act:**
-
-   ```
-   act
-   
-   ```
-
-4. **Despliegue en Kubernetes (Local):**
-
+3. **Desplegar en Kubernetes:**
+   Aplicar los manifiestos YAML en el clúster local:
    ```
    kubectl apply -f k8s/
    
    ```
+4. **Acceder a la API y Swagger:**
+   - API: `http://localhost:30080/api/`
+   - Swagger Docs: `http://localhost:30080/swagger-ui.html`
