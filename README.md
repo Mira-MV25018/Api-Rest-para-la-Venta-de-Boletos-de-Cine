@@ -186,13 +186,11 @@ La API implementará las operaciones HTTP estándar (`GET`, `POST`, `PUT`, `DELE
    Ejecutar localmente el pipeline para empaquetar el JAR y generar la imagen:
    ```
    act -W .github/workflows/ci-cd.yml
-   
    ```
 3. **Desplegar en Kubernetes:**
    Aplicar los manifiestos YAML en el clúster local:
    ```
    kubectl apply -f k8s/
-   
    ```
 4. **Acceder a la API y Swagger:**
    - API: `http://localhost:30080/api/`
