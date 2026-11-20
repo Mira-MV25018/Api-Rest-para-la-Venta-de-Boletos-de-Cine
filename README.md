@@ -189,7 +189,7 @@ La API implementará las operaciones HTTP estándar (`GET`, `POST`, `PUT`, `DELE
    `kubectl apply -f k8s/`
 4. **Acceder a la API y Swagger:**
    - API: `http://localhost:30080/api/`
-   - Swagger Docs: `http://localhost:30080/swagger-ui.html
+   - Swagger Docs: `http://localhost:30080/swagger-ui.html`
 
 1. **Clonar el repositorio:**
 
