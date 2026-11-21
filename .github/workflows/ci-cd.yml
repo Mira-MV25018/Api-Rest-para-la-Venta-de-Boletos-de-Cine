@@ -20,7 +20,8 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: 3. Instalar Maven
+      - name: 3. Instalar Maven (solo en act)
+        if: ${{ env.ACT }}
         run: |
           apt-get update
           apt-get install -y maven
