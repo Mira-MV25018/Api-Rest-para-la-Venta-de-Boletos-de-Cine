@@ -1,0 +1,32 @@
+name: Pipeline CI/CD Spring Boot
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-dockerize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout del código fuente
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar Java JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: 3. Instalar Maven
+        run: |
+          apt-get update
+          apt-get install -y maven
+
+      - name: 4. Construir proyecto con Maven
+        run: mvn clean package -DskipTests
+
+      - name: 5. Construir imagen de Docker local
+        run: docker build -t api-venta-boletos-cine:latest .
