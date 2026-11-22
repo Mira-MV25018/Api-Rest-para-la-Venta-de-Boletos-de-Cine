@@ -31,3 +31,11 @@ jobs:
 
       - name: 5. Construir imagen de Docker local
         run: docker build -t api-venta-boletos-cine:latest .
+
+      - name: 6. Despliegue en Kubernetes Local
+        run: |
+          mkdir -p .kube-local
+          cp ~/.kube/config .kube-local/config
+          export KUBECONFIG=$(pwd)/.kube-local/config
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
