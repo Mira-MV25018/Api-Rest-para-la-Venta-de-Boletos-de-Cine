@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-boletos-deployment
+  labels:
+    app: api-boletos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-boletos
+  template:
+    metadata:
+      labels:
+        app: api-boletos
+    spec:
+      containers:
+        - name: api-boletos-container
+          image: api-venta-boletos-cine:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://host.docker.internal:5432/venta_boletos_cine"
