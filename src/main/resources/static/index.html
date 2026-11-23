@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CineREST — Taquilla y Panel de Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        .screen-curve {
+            height: 10px;
+            border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+            box-shadow: 0 8px 25px rgba(245, 158, 11, 0.45);
+        }
+        .seat { transition: all 0.15s ease; }
+        .seat:hover:not(:disabled) { transform: scale(1.1); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+<!-- Barra superior -->
+<header class="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-30 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-xl">🎬</div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-white">CineREST <span class="text-amber-400">Taquilla</span></h1>
+                <p class="text-xs text-slate-400">API REST Spring Boot · Venta de Boletos de Cine</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+        <span id="apiStatus" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></span> Conectando...
+        </span>
+            <button onclick="cargarTodo()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition">
+                ↻ Recargar datos
+            </button>
+            <a href="/swagger-ui/index.html" target="_blank" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 font-medium transition">
+                Abrir Swagger UI ↗
+            </a>
+        </div>
+    </div>
+
+    <!-- Navegación -->
+    <nav class="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto pb-2">
+        <button onclick="cambiarTab('taquilla')" id="tab-taquilla" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 text-slate-950">🎟️ Taquilla</button>
+        <button onclick="cambiarTab('peliculas')" id="tab-peliculas" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800">🎬 Películas</button>
+        <button onclick="cambiarTab('salas')" id="tab-salas" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800">🏛️ Salas</button>
+        <button onclick="cambiarTab('funciones')" id="tab-funciones" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800">📅 Funciones</button>
+        <button onclick="cambiarTab('clientes')" id="tab-clientes" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800">👥 Clientes</button>
+        <button onclick="cambiarTab('ventas')" id="tab-ventas" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800">🧾 Ventas y Boletos</button>
+    </nav>
+</header>
+
+<!-- Notificaciones -->
+<div id="toastContainer" class="fixed top-20 right-4 z-50 flex flex-col gap-2 max-w-md"></div>
+
+<!-- Contenido principal -->
+<main class="max-w-7xl w-full mx-auto px-4 py-6 flex-1 space-y-6">
+
+    <!-- ==================== TAB: TAQUILLA ==================== -->
+    <section id="sec-taquilla" class="tab-sec space-y-6">
+        <!-- KPIs -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p class="text-xs text-slate-400">Películas en cartelera</p>
+                <p id="kpi-peliculas" class="text-2xl font-bold text-white mt-1">0</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p class="text-xs text-slate-400">Funciones activas</p>
+                <p id="kpi-funciones" class="text-2xl font-bold text-amber-400 mt-1">0</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p class="text-xs text-slate-400">Boletos emitidos</p>
+                <p id="kpi-boletos" class="text-2xl font-bold text-emerald-400 mt-1">0</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p class="text-xs text-slate-400">Ingresos registrados</p>
+                <p id="kpi-ingresos" class="text-2xl font-bold text-sky-400 mt-1">$0.00</p>
+            </div>
+        </div>
+
+        <div class="grid lg:grid-cols-12 gap-6">
+            <!-- Selector de función -->
+            <div class="lg:col-span-4 space-y-3">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">1. Selecciona una Función</h2>
+                <div id="listaFuncionesTaquilla" class="space-y-2.5 max-h-[520px] overflow-y-auto pr-1"></div>
+            </div>
+
+            <!-- Mapa de asientos -->
+            <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col">
+                <div class="flex items-center justify-between gap-2 mb-4">
+                    <div>
+                        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">2. Mapa de Asientos</h2>
+                        <p id="infoFuncionSeleccionada" class="text-xs text-amber-400 mt-0.5">Elige una función a la izquierda</p>
+                    </div>
+                    <label class="flex items-center gap-1.5 text-xs text-rose-300 cursor-pointer bg-rose-500/10 border border-rose-500/30 px-2.5 py-1 rounded-lg" title="Actívalo para intentar comprar un asiento ya vendido y demostrar el error 409 Conflict de la API">
+                        <input type="checkbox" id="modoConflicto" class="accent-rose-500" onchange="renderMapaAsientos()" />
+                        Probar 409
+                    </label>
+                </div>
+
+                <!-- Pantalla de cine -->
+                <div class="mb-6 text-center">
+                    <div class="screen-curve bg-gradient-to-r from-amber-500/20 via-amber-400 to-amber-500/20 w-4/5 mx-auto"></div>
+                    <span class="text-[10px] tracking-[0.35em] text-slate-500 uppercase mt-2 block">Pantalla</span>
+                </div>
+
+                <!-- Cuadrícula de asientos -->
+                <div id="gridAsientos" class="flex-1 flex flex-col items-center justify-center gap-2 min-h-[260px]">
+                    <p class="text-sm text-slate-500">Selecciona una función para ver la disponibilidad de la sala.</p>
+                </div>
+
+                <!-- Leyenda -->
+                <div class="flex flex-wrap justify-center gap-4 text-xs text-slate-400 mt-6 pt-4 border-t border-slate-800">
+                    <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-slate-800 border border-slate-600"></span> Disponible</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-amber-400"></span> Seleccionado</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-rose-600/80"></span> Ocupado</span>
+                </div>
+            </div>
+
+            <!-- Resumen de compra -->
+            <div class="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+                <div class="space-y-4">
+                    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">3. Confirmar Venta</h2>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Cliente</label>
+                        <select id="taquillaCliente" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400"></select>
+                    </div>
+
+                    <div class="bg-slate-950 rounded-xl p-3.5 border border-slate-800 space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Asientos:</span>
+                            <span id="resumenAsientos" class="font-semibold text-amber-400 text-right">—</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Precio unitario:</span>
+                            <span id="resumenPrecio">$0.00</span>
+                        </div>
+                        <div class="flex justify-between pt-2 border-t border-slate-800 text-base font-bold">
+                            <span>Total:</span>
+                            <span id="resumenTotal" class="text-emerald-400">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="procesarCompra()" id="btnComprar" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition disabled:opacity-40">
+                    🎟️ Emitir Venta y Boletos
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== TAB: PELÍCULAS (CRUD COMPLETO) ==================== -->
+    <section id="sec-peliculas" class="tab-sec hidden grid lg:grid-cols-12 gap-6">
+        <form id="formPelicula" onsubmit="guardarPelicula(event)" class="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 h-fit">
+            <div class="flex items-center justify-between">
+                <h2 id="pel-form-titulo" class="font-semibold text-amber-400">Nueva Película</h2>
+                <button type="button" id="pel-btn-cancelar" onclick="cancelarEdicionPelicula()" class="hidden text-xs text-slate-400 hover:text-white underline">Cancelar</button>
+            </div>
+            <input type="hidden" id="pel-id" />
+            <input id="pel-titulo" required placeholder="Título (ej. Dune: Parte Dos)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <input id="pel-duracion" required type="number" min="1" placeholder="Duración en minutos (ej. 166)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <input id="pel-clasificacion" required placeholder="Clasificación (ej. PG-13)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <input id="pel-genero" required placeholder="Género (ej. Ciencia Ficción)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <button id="pel-btn-submit" class="w-full py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-sm">Guardar Película</button>
+        </form>
+        <div class="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-5 overflow-x-auto">
+            <h2 class="font-semibold mb-3">Listado de Películas (`/api/peliculas`)</h2>
+            <table class="w-full text-sm text-left">
+                <thead class="text-xs uppercase text-slate-400 border-b border-slate-800">
+                <tr><th class="py-2">ID</th><th>Título</th><th>Duración</th><th>Clasif.</th><th>Género</th><th class="text-right">Acciones</th></tr>
+                </thead>
+                <tbody id="tablaPeliculas" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ==================== TAB: SALAS ==================== -->
+    <section id="sec-salas" class="tab-sec hidden grid lg:grid-cols-12 gap-6">
+        <form onsubmit="crearSala(event)" class="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 h-fit">
+            <h2 class="font-semibold text-amber-400">Nueva Sala</h2>
+            <input id="sala-nombre" required placeholder="Nombre (ej. Sala IMAX 1)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <input id="sala-capacidad" required type="number" min="1" max="150" placeholder="Capacidad total (ej. 30)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <button class="w-full py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-sm">Guardar Sala</button>
+        </form>
+        <div class="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-5 overflow-x-auto">
+            <h2 class="font-semibold mb-3">Listado de Salas (`/api/salas`)</h2>
+            <table class="w-full text-sm text-left">
+                <thead class="text-xs uppercase text-slate-400 border-b border-slate-800">
+                <tr><th class="py-2">ID</th><th>Nombre</th><th>Capacidad Total</th><th class="text-right">Acción</th></tr>
+                </thead>
+                <tbody id="tablaSalas" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ==================== TAB: FUNCIONES ==================== -->
+    <section id="sec-funciones" class="tab-sec hidden grid lg:grid-cols-12 gap-6">
+        <form onsubmit="crearFuncion(event)" class="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 h-fit">
+            <h2 class="font-semibold text-amber-400">Programar Función</h2>
+            <div>
+                <label class="text-xs text-slate-400">Película</label>
+                <select id="fun-pelicula" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1"></select>
+            </div>
+            <div>
+                <label class="text-xs text-slate-400">Sala</label>
+                <select id="fun-sala" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1"></select>
+            </div>
+            <div>
+                <label class="text-xs text-slate-400">Fecha y Hora (debe ser futura)</label>
+                <input id="fun-fecha" required type="datetime-local" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1" />
+            </div>
+            <div>
+                <label class="text-xs text-slate-400">Precio Base ($)</label>
+                <input id="fun-precio" required type="number" step="0.01" min="0.01" placeholder="5.50" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1" />
+            </div>
+            <button class="w-full py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-sm">Crear Función</button>
+        </form>
+        <div class="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-5 overflow-x-auto">
+            <h2 class="font-semibold mb-3">Funciones Programadas (`/api/funciones`)</h2>
+            <table class="w-full text-sm text-left">
+                <thead class="text-xs uppercase text-slate-400 border-b border-slate-800">
+                <tr><th class="py-2">ID</th><th>Película</th><th>Sala</th><th>Fecha y Hora</th><th>Precio</th><th class="text-right">Acción</th></tr>
+                </thead>
+                <tbody id="tablaFunciones" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ==================== TAB: CLIENTES ==================== -->
+    <section id="sec-clientes" class="tab-sec hidden grid lg:grid-cols-12 gap-6">
+        <form onsubmit="crearCliente(event)" class="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 h-fit">
+            <h2 class="font-semibold text-amber-400">Nuevo Cliente</h2>
+            <input id="cli-nombre" required placeholder="Nombre" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <input id="cli-apellido" required placeholder="Apellido" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <input id="cli-correo" required type="email" placeholder="correo@ejemplo.com" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <input id="cli-telefono" placeholder="Teléfono (ej. 7777-8888)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <button class="w-full py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-sm">Registrar Cliente</button>
+        </form>
+        <div class="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-5 overflow-x-auto">
+            <h2 class="font-semibold mb-3">Clientes Registrados (`/api/clientes`)</h2>
+            <table class="w-full text-sm text-left">
+                <thead class="text-xs uppercase text-slate-400 border-b border-slate-800">
+                <tr><th class="py-2">ID</th><th>Nombre</th><th>Correo</th><th>Teléfono</th><th class="text-right">Acción</th></tr>
+                </thead>
+                <tbody id="tablaClientes" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ==================== TAB: VENTAS Y BOLETOS ==================== -->
+    <section id="sec-ventas" class="tab-sec hidden grid lg:grid-cols-2 gap-6">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 overflow-x-auto">
+            <h2 class="font-semibold mb-3 text-amber-400">Ventas (`/api/ventas`)</h2>
+            <table class="w-full text-sm text-left">
+                <thead class="text-xs uppercase text-slate-400 border-b border-slate-800">
+                <tr><th class="py-2">ID</th><th>Cliente</th><th>Fecha</th><th>Total</th><th class="text-right">Acción</th></tr>
+                </thead>
+                <tbody id="tablaVentas" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 overflow-x-auto">
+            <h2 class="font-semibold mb-3 text-emerald-400">Boletos (`/api/boletos`)</h2>
+            <table class="w-full text-sm text-left">
+                <thead class="text-xs uppercase text-slate-400 border-b border-slate-800">
+                <tr><th class="py-2">ID</th><th>Venta</th><th>Función</th><th>Asiento</th><th>Precio</th><th class="text-right">Acción</th></tr>
+                </thead>
+                <tbody id="tablaBoletos" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ==================== MONITOR HTTP EN VIVO ==================== -->
+    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">📡 Monitor de Respuestas REST en Vivo</h3>
+            <button onclick="document.getElementById('httpLogs').innerHTML=''" class="text-xs text-slate-500 hover:text-slate-300">Limpiar</button>
+        </div>
+        <div id="httpLogs" class="space-y-1.5 max-h-40 overflow-y-auto font-mono text-xs"></div>
+    </section>
+
+</main>
+
+<script>
+    const state = {
+        peliculas: [],
+        salas: [],
+        funciones: [],
+        clientes: [],
+        ventas: [],
+        boletos: [],
+        funcionSeleccionadaId: null,
+        asientosSeleccionados: new Set()
+    };
+
+    // Utilidad centralizada para llamadas REST + registro en el monitor
+    async function apiFetch(url, options = {}) {
+        const method = options.method || 'GET';
+        const config = {
+            method,
+            headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+            body: options.body ? JSON.stringify(options.body) : undefined
+        };
+        const res = await fetch(url, config);
+        const text = await res.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+
+        registrarLog(method, url, res.status, data);
+
+        if (!res.ok) {
+            const msg = (data && (data.mensaje || data.message || data.error))
+                ? `${res.status}: ${data.mensaje || data.message || JSON.stringify(data)}`
+                : `Error HTTP ${res.status}`;
+            throw new Error(msg);
+        }
+        return data;
+    }
+
+    function registrarLog(method, url, status, data) {
+        const box = document.getElementById('httpLogs');
+        const ok = status >= 200 && status < 300;
+        const badgeColor = ok ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+        const preview = data ? JSON.stringify(data).slice(0, 140) : '(sin cuerpo)';
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2 bg-slate-950 border border-slate-800/80 rounded-lg px-3 py-1.5';
+        row.innerHTML = `
+        <span class="px-1.5 py-0.5 rounded border text-[10px] font-bold ${badgeColor}">${status}</span>
+        <span class="text-amber-400 font-semibold">${method}</span>
+        <span class="text-slate-300">${url}</span>
+        <span class="text-slate-500 truncate flex-1">${preview}</span>
+      `;
+        box.prepend(row);
+        if (box.children.length > 20) box.lastChild.remove();
+    }
+
+    function toast(mensaje, tipo = 'ok') {
+        const el = document.createElement('div');
+        const estilo = tipo === 'ok'
+            ? 'bg-emerald-950/95 border-emerald-500/60 text-emerald-200'
+            : 'bg-rose-950/95 border-rose-500/60 text-rose-200';
+        el.className = `px-4 py-3 rounded-xl border text-sm shadow-xl ${estilo}`;
+        el.textContent = mensaje;
+        document.getElementById('toastContainer').appendChild(el);
+        setTimeout(() => el.remove(), 4500);
+    }
+
+    function cambiarTab(nombre) {
+        document.querySelectorAll('.tab-sec').forEach(s => s.classList.add('hidden'));
+        document.getElementById('sec-' + nombre).classList.remove('hidden');
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            b.className = 'tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800';
+        });
+        document.getElementById('tab-' + nombre).className = 'tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 text-slate-950';
+    }
+
+    function formatoFecha(iso) {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        return isNaN(d) ? iso : d.toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    // Cargar todos los recursos de la API
+    async function cargarTodo() {
+        const statusEl = document.getElementById('apiStatus');
+        try {
+            const [peliculas, salas, funciones, clientes, ventas, boletos] = await Promise.all([
+                apiFetch('/api/peliculas'),
+                apiFetch('/api/salas'),
+                apiFetch('/api/funciones'),
+                apiFetch('/api/clientes'),
+                apiFetch('/api/ventas'),
+                apiFetch('/api/boletos')
+            ]);
+            state.peliculas = peliculas || [];
+            state.salas = salas || [];
+            state.funciones = funciones || [];
+            state.clientes = clientes || [];
+            state.ventas = ventas || [];
+            state.boletos = boletos || [];
+
+            statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> API Conectada`;
+            statusEl.className = 'text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5';
+
+            if (!state.funcionSeleccionadaId && state.funciones.length > 0) {
+                state.funcionSeleccionadaId = state.funciones[0].idFuncion;
+            }
+            renderTodo();
+        } catch (e) {
+            statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> Sin conexión`;
+            statusEl.className = 'text-xs px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-300 border border-rose-500/30 flex items-center gap-1.5';
+            toast('No se pudo conectar a la API: ' + e.message, 'error');
+        }
+    }
+
+    function renderTodo() {
+        // KPIs
+        document.getElementById('kpi-peliculas').textContent = state.peliculas.length;
+        document.getElementById('kpi-funciones').textContent = state.funciones.length;
+        document.getElementById('kpi-boletos').textContent = state.boletos.length;
+        const ingresos = state.ventas.reduce((acc, v) => acc + (Number(v.totalPagado) || 0), 0);
+        document.getElementById('kpi-ingresos').textContent = `$${ingresos.toFixed(2)}`;
+
+        renderTaquillaFunciones();
+        renderMapaAsientos();
+        renderSelects();
+        renderTablas();
+    }
+
+    function renderTaquillaFunciones() {
+        const cont = document.getElementById('listaFuncionesTaquilla');
+        if (state.funciones.length === 0) {
+            cont.innerHTML = `<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm text-slate-400">No hay funciones programadas. Crea una en la pestaña <b>Funciones</b>.</div>`;
+            return;
+        }
+        cont.innerHTML = state.funciones.map(f => {
+            const sala = state.salas.find(s => s.idSala === f.idSala);
+            const cap = sala ? sala.capacidadTotal : '?';
+            const vendidos = state.boletos.filter(b => b.idFuncion === f.idFuncion).length;
+            const activa = f.idFuncion === state.funcionSeleccionadaId;
+            return `
+          <button onclick="seleccionarFuncion(${f.idFuncion})" class="w-full text-left p-3.5 rounded-xl border transition ${activa ? 'bg-amber-500/15 border-amber-400' : 'bg-slate-900 border-slate-800 hover:border-slate-700'}">
+            <div class="flex justify-between items-start gap-2">
+              <p class="font-semibold text-sm text-white">${f.tituloPelicula || 'Película #' + f.idPelicula}</p>
+              <span class="text-xs font-bold text-emerald-400">$${Number(f.precioBase).toFixed(2)}</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">🏛️ ${f.nombreSala || 'Sala #' + f.idSala} · ${formatoFecha(f.fechaHora)}</p>
+            <div class="mt-2 flex items-center justify-between text-[11px]">
+              <span class="text-slate-400">Función #${f.idFuncion}</span>
+              <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">${vendidos} / ${cap} ocupados</span>
+            </div>
+          </button>
+        `;
+        }).join('');
+    }
+
+    function seleccionarFuncion(id) {
+        state.funcionSeleccionadaId = id;
+        state.asientosSeleccionados.clear();
+        renderTaquillaFunciones();
+        renderMapaAsientos();
+    }
+
+    function generarEtiquetasAsientos(capacidad) {
+        const letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const porFila = capacidad <= 24 ? 6 : (capacidad <= 48 ? 8 : 10);
+        const filas = [];
+        let restantes = Math.min(capacidad, 120);
+        let filaIdx = 0;
+        while (restantes > 0) {
+            const cant = Math.min(porFila, restantes);
+            const letra = letras[filaIdx] || ('F' + (filaIdx + 1));
+            const fila = [];
+            for (let i = 1; i <= cant; i++) fila.push(`${letra}${i}`);
+            filas.push(fila);
+            restantes -= cant;
+            filaIdx++;
+        }
+        return filas;
+    }
+
+    function renderMapaAsientos() {
+        const grid = document.getElementById('gridAsientos');
+        const info = document.getElementById('infoFuncionSeleccionada');
+        const funcion = state.funciones.find(f => f.idFuncion === state.funcionSeleccionadaId);
+
+        if (!funcion) {
+            info.textContent = 'Elige una función a la izquierda';
+            grid.innerHTML = `<p class="text-sm text-slate-500">No hay función seleccionada.</p>`;
+            actualizarResumenCompra();
+            return;
+        }
+
+        const sala = state.salas.find(s => s.idSala === funcion.idSala);
+        const capacidad = sala ? sala.capacidadTotal : 20;
+        const ocupados = new Set(
+            state.boletos.filter(b => b.idFuncion === funcion.idFuncion).map(b => b.numeroAsiento.toUpperCase())
+        );
+        const permitirConflicto = document.getElementById('modoConflicto').checked;
+
+        info.textContent = `${funcion.tituloPelicula} · ${funcion.nombreSala} (Capacidad: ${capacidad})`;
+
+        const filas = generarEtiquetasAsientos(capacidad);
+        grid.innerHTML = filas.map(fila => `
+        <div class="flex gap-1.5 justify-center">
+          ${fila.map(asiento => {
+            const estaOcupado = ocupados.has(asiento);
+            const estaSel = state.asientosSeleccionados.has(asiento);
+            let cls = 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700';
+            if (estaSel) cls = 'bg-amber-400 text-slate-950 font-bold border-amber-300';
+            else if (estaOcupado) cls = 'bg-rose-600/80 text-white border-rose-500/60 ' + (permitirConflicto ? 'cursor-pointer ring-1 ring-rose-300' : 'opacity-70 cursor-not-allowed');
+            const disabled = (estaOcupado && !permitirConflicto) ? 'disabled' : '';
+            return `<button type="button" ${disabled} onclick="toggleAsiento('${asiento}')" class="seat w-9 h-8 rounded-md border text-[11px] ${cls}">${asiento}</button>`;
+        }).join('')}
+        </div>
+      `).join('');
+
+        actualizarResumenCompra();
+    }
+
+    function toggleAsiento(asiento) {
+        if (state.asientosSeleccionados.has(asiento)) state.asientosSeleccionados.delete(asiento);
+        else state.asientosSeleccionados.add(asiento);
+        renderMapaAsientos();
+    }
+
+    function actualizarResumenCompra() {
+        const funcion = state.funciones.find(f => f.idFuncion === state.funcionSeleccionadaId);
+        const lista = Array.from(state.asientosSeleccionados);
+        const precio = funcion ? Number(funcion.precioBase) : 0;
+        document.getElementById('resumenAsientos').textContent = lista.length ? lista.join(', ') : '—';
+        document.getElementById('resumenPrecio').textContent = `$${precio.toFixed(2)}`;
+        document.getElementById('resumenTotal').textContent = `$${(precio * lista.length).toFixed(2)}`;
+        document.getElementById('btnComprar').disabled = !funcion || lista.length === 0;
+    }
+
+    async function procesarCompra() {
+        const funcion = state.funciones.find(f => f.idFuncion === state.funcionSeleccionadaId);
+        const idCliente = Number(document.getElementById('taquillaCliente').value);
+        const asientos = Array.from(state.asientosSeleccionados);
+
+        if (!funcion || !idCliente || asientos.length === 0) {
+            toast('Selecciona cliente y al menos un asiento.', 'error');
+            return;
+        }
+
+        const precio = Number(funcion.precioBase);
+        const totalPagado = Number((precio * asientos.length).toFixed(2));
+        const ahoraLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 19);
+
+        try {
+            // 1. Crear Venta
+            const venta = await apiFetch('/api/ventas', {
+                method: 'POST',
+                body: { idCliente, fechaVenta: ahoraLocal, totalPagado }
+            });
+
+            // 2. Crear Boletos asociados
+            for (const numeroAsiento of asientos) {
+                await apiFetch('/api/boletos', {
+                    method: 'POST',
+                    body: {
+                        idVenta: venta.idVenta,
+                        idFuncion: funcion.idFuncion,
+                        numeroAsiento,
+                        precioPagado: precio
+                    }
+                });
+            }
+
+            state.asientosSeleccionados.clear();
+            toast(`¡Venta #${venta.idVenta} completada! Boletos: ${asientos.join(', ')}`, 'ok');
+            await cargarTodo();
+        } catch (e) {
+            toast(e.message, 'error');
+            await cargarTodo();
+        }
+    }
+
+    function renderSelects() {
+        const cliSel = document.getElementById('taquillaCliente');
+        cliSel.innerHTML = state.clientes.length
+            ? state.clientes.map(c => `<option value="${c.idCliente}">${c.nombre} ${c.apellido} (#${c.idCliente})</option>`).join('')
+            : `<option value="">Sin clientes — crea uno primero</option>`;
+
+        document.getElementById('fun-pelicula').innerHTML = state.peliculas
+            .map(p => `<option value="${p.idPelicula}">${p.titulo} (#${p.idPelicula})</option>`).join('');
+
+        document.getElementById('fun-sala').innerHTML = state.salas
+            .map(s => `<option value="${s.idSala}">${s.nombre} (${s.capacidadTotal} asientos)</option>`).join('');
+    }
+
+    function renderTablas() {
+        document.getElementById('tablaPeliculas').innerHTML = state.peliculas.map(p => `
+        <tr>
+          <td class="py-2 text-slate-400">#${p.idPelicula}</td>
+          <td class="font-medium">${p.titulo}</td>
+          <td>${p.duracion} min</td>
+          <td><span class="px-2 py-0.5 rounded bg-slate-800 text-xs">${p.clasificacion}</span></td>
+          <td>${p.genero}</td>
+          <td class="text-right space-x-3">
+            <button onclick="cargarPeliculaParaEditar(${p.idPelicula})" class="text-amber-400 hover:underline text-xs">Editar</button>
+            <button onclick="eliminar('/api/peliculas/${p.idPelicula}')" class="text-rose-400 hover:underline text-xs">Eliminar</button>
+          </td>
+        </tr>`).join('');
+
+        document.getElementById('tablaSalas').innerHTML = state.salas.map(s => `
+        <tr>
+          <td class="py-2 text-slate-400">#${s.idSala}</td>
+          <td class="font-medium">${s.nombre}</td>
+          <td>${s.capacidadTotal} asientos</td>
+          <td class="text-right"><button onclick="eliminar('/api/salas/${s.idSala}')" class="text-rose-400 hover:underline text-xs">Eliminar</button></td>
+        </tr>`).join('');
+
+        document.getElementById('tablaFunciones').innerHTML = state.funciones.map(f => `
+        <tr>
+          <td class="py-2 text-slate-400">#${f.idFuncion}</td>
+          <td class="font-medium">${f.tituloPelicula}</td>
+          <td>${f.nombreSala}</td>
+          <td>${formatoFecha(f.fechaHora)}</td>
+          <td class="text-emerald-400 font-medium">$${Number(f.precioBase).toFixed(2)}</td>
+          <td class="text-right"><button onclick="eliminar('/api/funciones/${f.idFuncion}')" class="text-rose-400 hover:underline text-xs">Eliminar</button></td>
+        </tr>`).join('');
+
+        document.getElementById('tablaClientes').innerHTML = state.clientes.map(c => `
+        <tr>
+          <td class="py-2 text-slate-400">#${c.idCliente}</td>
+          <td class="font-medium">${c.nombre} ${c.apellido}</td>
+          <td class="text-slate-300">${c.correo}</td>
+          <td class="text-slate-400">${c.telefono || '—'}</td>
+          <td class="text-right"><button onclick="eliminar('/api/clientes/${c.idCliente}')" class="text-rose-400 hover:underline text-xs">Eliminar</button></td>
+        </tr>`).join('');
+
+        document.getElementById('tablaVentas').innerHTML = state.ventas.map(v => {
+            const cli = state.clientes.find(c => c.idCliente === v.idCliente);
+            return `
+        <tr>
+          <td class="py-2 text-slate-400">#${v.idVenta}</td>
+          <td>${cli ? cli.nombre + ' ' + cli.apellido : 'Cliente #' + v.idCliente}</td>
+          <td class="text-xs text-slate-400">${formatoFecha(v.fechaVenta)}</td>
+          <td class="text-emerald-400 font-medium">$${Number(v.totalPagado).toFixed(2)}</td>
+          <td class="text-right"><button onclick="eliminar('/api/ventas/${v.idVenta}')" class="text-rose-400 hover:underline text-xs">Eliminar</button></td>
+        </tr>`;
+        }).join('');
+
+        document.getElementById('tablaBoletos').innerHTML = state.boletos.map(b => `
+        <tr>
+          <td class="py-2 text-slate-400">#${b.idBoleto}</td>
+          <td>#${b.idVenta}</td>
+          <td>#${b.idFuncion}</td>
+          <td><span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-xs">${b.numeroAsiento}</span></td>
+          <td>$${Number(b.precioPagado).toFixed(2)}</td>
+          <td class="text-right"><button onclick="eliminar('/api/boletos/${b.idBoleto}')" class="text-rose-400 hover:underline text-xs">Eliminar</button></td>
+        </tr>`).join('');
+    }
+
+    // Acciones CRUD Películas (POST + PUT)
+    function cargarPeliculaParaEditar(id) {
+        const p = state.peliculas.find(item => item.idPelicula === id);
+        if (!p) return;
+        document.getElementById('pel-id').value = p.idPelicula;
+        document.getElementById('pel-titulo').value = p.titulo;
+        document.getElementById('pel-duracion').value = p.duracion;
+        document.getElementById('pel-clasificacion').value = p.clasificacion;
+        document.getElementById('pel-genero').value = p.genero;
+        document.getElementById('pel-form-titulo').textContent = `Editando Película #${p.idPelicula}`;
+        document.getElementById('pel-btn-submit').textContent = 'Actualizar Película';
+        document.getElementById('pel-btn-cancelar').classList.remove('hidden');
+    }
+
+    function cancelarEdicionPelicula() {
+        document.getElementById('pel-id').value = '';
+        document.getElementById('formPelicula').reset();
+        document.getElementById('pel-form-titulo').textContent = 'Nueva Película';
+        document.getElementById('pel-btn-submit').textContent = 'Guardar Película';
+        document.getElementById('pel-btn-cancelar').classList.add('hidden');
+    }
+
+    async function guardarPelicula(e) {
+        e.preventDefault();
+        const id = document.getElementById('pel-id').value;
+        const body = {
+            titulo: document.getElementById('pel-titulo').value,
+            duracion: Number(document.getElementById('pel-duracion').value),
+            clasificacion: document.getElementById('pel-clasificacion').value,
+            genero: document.getElementById('pel-genero').value
+        };
+
+        try {
+            if (id) {
+                await apiFetch(`/api/peliculas/${id}`, { method: 'PUT', body });
+                toast(`Película #${id} actualizada correctamente.`);
+            } else {
+                await apiFetch('/api/peliculas', { method: 'POST', body });
+                toast('Película creada correctamente.');
+            }
+            cancelarEdicionPelicula();
+            cargarTodo();
+        } catch (err) { toast(err.message, 'error'); }
+    }
+
+    async function crearSala(e) {
+        e.preventDefault();
+        try {
+            await apiFetch('/api/salas', {
+                method: 'POST',
+                body: {
+                    nombre: document.getElementById('sala-nombre').value,
+                    capacidadTotal: Number(document.getElementById('sala-capacidad').value)
+                }
+            });
+            e.target.reset();
+            toast('Sala creada correctamente.');
+            cargarTodo();
+        } catch (err) { toast(err.message, 'error'); }
+    }
+
+    async function crearFuncion(e) {
+        e.preventDefault();
+        try {
+            let fecha = document.getElementById('fun-fecha').value;
+            if (fecha.length === 16) fecha += ':00';
+            await apiFetch('/api/funciones', {
+                method: 'POST',
+                body: {
+                    idPelicula: Number(document.getElementById('fun-pelicula').value),
+                    idSala: Number(document.getElementById('fun-sala').value),
+                    fechaHora: fecha,
+                    precioBase: Number(document.getElementById('fun-precio').value)
+                }
+            });
+            e.target.reset();
+            setFechaFuturaPorDefecto();
+            toast('Función programada correctamente.');
+            cargarTodo();
+        } catch (err) { toast(err.message, 'error'); }
+    }
+
+    async function crearCliente(e) {
+        e.preventDefault();
+        try {
+            await apiFetch('/api/clientes', {
+                method: 'POST',
+                body: {
+                    nombre: document.getElementById('cli-nombre').value,
+                    apellido: document.getElementById('cli-apellido').value,
+                    correo: document.getElementById('cli-correo').value,
+                    telefono: document.getElementById('cli-telefono').value
+                }
+            });
+            e.target.reset();
+            toast('Cliente registrado correctamente.');
+            cargarTodo();
+        } catch (err) { toast(err.message, 'error'); }
+    }
+
+    async function eliminar(url) {
+        if (!confirm('¿Seguro que deseas eliminar este registro?')) return;
+        try {
+            await apiFetch(url, { method: 'DELETE' });
+            toast('Registro eliminado.');
+            cargarTodo();
+        } catch (err) { toast(err.message, 'error'); }
+    }
+
+    function setFechaFuturaPorDefecto() {
+        const manana = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const local = new Date(manana - manana.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        document.getElementById('fun-fecha').value = local;
+    }
+
+    // Inicio
+    setFechaFuturaPorDefecto();
+    cargarTodo();
+</script>
+</body>
+</html>
