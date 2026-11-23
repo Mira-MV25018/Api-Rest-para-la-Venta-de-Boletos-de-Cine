@@ -22,4 +22,4 @@ spec:
             - containerPort: 8080
           env:
             - name: SPRING_DATASOURCE_URL
-              value: "jdbc:postgresql://host.docker.internal:5432/venta_boletos_cine"
+              value: "jdbc:postgresql://host.docker.internal:5432/venta_boletos"

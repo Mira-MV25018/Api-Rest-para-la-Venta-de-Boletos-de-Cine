@@ -26,13 +26,14 @@ jobs:
           apt-get update
           apt-get install -y maven
 
-      - name: 4. Construir proyecto con Maven
-        run: mvn clean package -DskipTests
+      - name: 4. Construir proyecto y ejecutar pruebas con Maven
+        run: mvn clean package
 
       - name: 5. Construir imagen de Docker local
         run: docker build -t api-venta-boletos-cine:latest .
 
       - name: 6. Despliegue en Kubernetes Local
+        if: ${{ env.ACT }}
         run: |
           mkdir -p .kube-local
           cp ~/.kube/config .kube-local/config
